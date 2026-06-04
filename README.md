@@ -5,9 +5,9 @@ This repository builds the PortMaster package for the regular Steam mainline bui
 Test builds are published on the
 [GitHub releases page](https://github.com/Producdevity/portmaster-stardew-valley-mainline/releases).
 
-## Repository Boundaries
+## Repository Layout
 
-- This repo contains the package template, build scripts, patcher source, native
+- This repository contains the package template, build scripts, patcher source, native
   shims, validation fixtures, and maintainer documentation.
 - `../MonoGame/` is the patched MonoGame fork used by this port. It should be
   checked out from
@@ -63,9 +63,9 @@ Vanilla mainline Stardew Valley remains the default when no user mods are presen
 When user-installed mods are present, the same launcher starts SMAPI 4.5.2 and uses
 `stardewvalleymainline/Mods` as the external mod directory.
 
-This package supports the SMAPI loader path, not every SMAPI mod. Mods can still
-fail when they require a different Stardew or SMAPI version, missing framework
-mods, Windows/x64 native binaries, unsupported rendering/input/audio behavior, or
+This package can launch SMAPI, but individual mods may still fail when they
+require a different Stardew or SMAPI version, missing framework mods,
+Windows/x64 native binaries, unsupported rendering/input/audio behavior, or
 low-level Harmony patches that assume Stardew's exact Steam MonoGame build.
 
 ## Build
