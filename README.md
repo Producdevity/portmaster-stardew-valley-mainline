@@ -30,7 +30,8 @@ Stardew Valley mainline targets `net6.0`, so the release package uses a side-by-
 roll-forward for release builds.
 
 The package uses Microsoft's `dotnet-runtime-6.0.32-linux-arm64` framework runtime
-layout. Do not trim runtime files blindly; Stardew, SMAPI, Harmony, and mods use
+layout. Keep the runtime layout intact unless the result is validated with vanilla
+Stardew, SMAPI, and representative mods; Stardew, SMAPI, Harmony, and mods use
 reflection and dynamic loading.
 
 ## Package Layout
