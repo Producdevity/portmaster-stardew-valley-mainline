@@ -32,9 +32,7 @@
       }
     ],
     "availability": "paid",
-    "reqs": [
-      "!lowres"
-    ],
+    "reqs": [],
     "arch": [
       "aarch64"
     ],
