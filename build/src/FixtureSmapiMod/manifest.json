@@ -1,0 +1,9 @@
+{
+  "Name": "PortMaster Fixture Mod",
+  "Author": "PortMaster Stardew Mainline",
+  "Version": "1.0.0",
+  "Description": "Build validation fixture for SMAPI dynamic audio loading.",
+  "UniqueId": "PortMaster.MainlineFixtureMod",
+  "EntryDll": "FixtureSmapiMod.dll",
+  "MinimumApiVersion": "4.5.2"
+}

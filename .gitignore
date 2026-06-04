@@ -1,0 +1,14 @@
+build/out/
+build/cache/
+build/device-logs/
+build/reports/
+build/**/*.binlog
+build/**/bin/
+build/**/obj/
+**/__pycache__/
+**/.idea/
+
+stardewvalley_steam/
+
+.DS_Store
+._*

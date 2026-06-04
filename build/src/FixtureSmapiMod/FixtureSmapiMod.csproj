@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>FixtureSmapiMod</AssemblyName>
+    <RootNamespace>PortMaster.StardewValley.FixtureSmapiMod</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <Target Name="RequireSmapiReference" BeforeTargets="ResolveReferences" Condition="'$(SmapiReference)' == ''">
+    <Error Text="Set SmapiReference to the staged StardewModdingAPI.dll." />
+  </Target>
+
+  <ItemGroup Condition="'$(SmapiReference)' != ''">
+    <Reference Include="StardewModdingAPI">
+      <HintPath>$(SmapiReference)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>
