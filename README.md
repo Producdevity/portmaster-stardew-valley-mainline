@@ -45,7 +45,7 @@ ports/stardewvalleymainline/
 ├── cover.png
 ├── gameinfo.xml
 ├── port.json
-├── screenshot.jpg
+├── screenshot.png
 └── stardewvalleymainline/
 ```
 

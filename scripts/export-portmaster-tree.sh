@@ -24,7 +24,7 @@ cp "$PACKAGE_ROOT/StardewValleyMainline.sh" "$DEST_PORT_DIR/StardewValleyMainlin
 cp "$SOURCE_PORT_DIR/port.json" "$DEST_PORT_DIR/port.json"
 cp "$SOURCE_PORT_DIR/stardewvalley.md" "$DEST_PORT_DIR/README.md"
 cp "$SOURCE_PORT_DIR/cover.png" "$DEST_PORT_DIR/cover.png"
-cp "$SOURCE_PORT_DIR/screenshot.jpg" "$DEST_PORT_DIR/screenshot.jpg"
+cp "$SOURCE_PORT_DIR/screenshot.png" "$DEST_PORT_DIR/screenshot.png"
 cp "$SOURCE_PORT_DIR/gameinfo.xml" "$DEST_PORT_DIR/gameinfo.xml"
 
 mkdir -p "$DEST_PORT_DIR/$PORT_NAME"
@@ -32,7 +32,7 @@ rsync -a \
   --exclude='port.json' \
   --exclude='stardewvalley.md' \
   --exclude='cover.png' \
-  --exclude='screenshot.jpg' \
+  --exclude='screenshot.png' \
   --exclude='gameinfo.xml' \
   "$SOURCE_PORT_DIR/" "$DEST_PORT_DIR/$PORT_NAME/"
 

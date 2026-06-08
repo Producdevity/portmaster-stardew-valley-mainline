@@ -7,10 +7,10 @@
   ],
   "items_opt": [],
   "attr": {
-    "title": "Stardew Valley Mainline",
+    "title": "Stardew Valley",
     "porter": [
       "Producdevity",
-      "JohnnyonFlame"
+      "Johnny on Flame"
     ],
     "desc": "Stardew Valley is an open-ended country-life RPG. This port runs the Windows Steam mainline build on supported Linux ARM handhelds.",
     "desc_md": null,
