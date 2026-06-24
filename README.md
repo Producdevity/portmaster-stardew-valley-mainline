@@ -1,9 +1,10 @@
 # Stardew Valley Mainline for PortMaster
 
-This repository builds the PortMaster package for the regular Steam mainline build of Stardew Valley. It does not target the legacy compatibility branch.
+This repository builds the PortMaster package for the regular Steam mainline
+build of Stardew Valley. It does not target the legacy compatibility branch.
 
 Test builds are published on the
-[GitHub releases page](https://github.com/Producdevity/PortMaster-New/releases).
+[GitHub releases page](https://github.com/Producdevity/portmaster-stardew-valley-mainline/releases).
 
 ## Repository Layout
 

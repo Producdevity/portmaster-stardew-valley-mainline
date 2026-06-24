@@ -1,5 +1,8 @@
 # Contributing
 
+Please reach out in the PortMaster Discord server first if you have questions or
+want to contribute and do not contribute AI generated code that you do not understand.
+
 ## Local Requirements
 
 - Docker with Linux ARM64 emulation support.
