@@ -491,6 +491,7 @@ static void PatchGameAssemblyMethods(string gameDir)
         game1ViewportField,
         game1UiViewportField,
         2);
+    PatchOutTitleMenuWindowedButtonUpdatePosition(GetRequiredMethod(titleMenuType, "update", 1));
 
     RewriteInputStateUpdateStates(
         inputStateUpdateStates,
@@ -860,6 +861,54 @@ static void RewriteTitleMenuViewportUsage(
         throw new InvalidOperationException(
             $"Unexpected TitleMenu viewport patch count for {method.FullName}: expected {expectedReplacements}, got {replacements} (original viewport refs={originalViewportRefs}, existing uiViewport refs={existingUiViewportRefs})");
     }
+}
+
+static void PatchOutTitleMenuWindowedButtonUpdatePosition(MethodDefinition method)
+{
+    var setPositionCalls = method.Body.Instructions
+        .Select((instruction, index) => (instruction, index))
+        .Where(item => IsSetPositionCall(item.instruction) && ReferencesWindowedButtonBefore(method.Body.Instructions, item.index))
+        .ToList();
+
+    if (setPositionCalls.Count == 0)
+    {
+        return;
+    }
+    if (setPositionCalls.Count != 1)
+    {
+        throw new InvalidOperationException($"Unexpected TitleMenu windowedButton setPosition count in {method.FullName}: {setPositionCalls.Count}");
+    }
+
+    var il = method.Body.GetILProcessor();
+    var call = setPositionCalls[0].instruction;
+    call.OpCode = OpCodes.Pop;
+    call.Operand = null;
+    il.InsertAfter(call, il.Create(OpCodes.Pop));
+}
+
+static bool IsSetPositionCall(Instruction instruction)
+{
+    return instruction.OpCode == OpCodes.Callvirt &&
+           instruction.Operand is MethodReference reference &&
+           reference.Name == "setPosition" &&
+           reference.DeclaringType.FullName is "StardewValley.Menus.ClickableComponent" or "StardewValley.Menus.ClickableTextureComponent" &&
+           reference.Parameters.Count == 1 &&
+           reference.Parameters[0].ParameterType.FullName == "Microsoft.Xna.Framework.Vector2";
+}
+
+static bool ReferencesWindowedButtonBefore(Mono.Collections.Generic.Collection<Instruction> instructions, int callIndex)
+{
+    for (var index = callIndex - 1; index >= 0 && index >= callIndex - 80; index--)
+    {
+        if (instructions[index].Operand is FieldReference field &&
+            field.Name == "windowedButton" &&
+            field.DeclaringType.FullName == "StardewValley.Menus.TitleMenu")
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static void RewriteInputStateUpdateStates(
