@@ -439,6 +439,8 @@ static void PatchGameAssemblyMethods(string gameDir)
     var mathFMin = module.ImportReference(
         typeof(MathF).GetMethod(nameof(MathF.Min), new[] { typeof(float), typeof(float) })
         ?? throw new InvalidOperationException("Unable to import MathF.Min"));
+    var portDisplayWidthMethod = EnsurePortMasterDisplayDimensionMethod(programType, module, "PortMasterGetDisplayWidth", "DISPLAY_WIDTH");
+    var portDisplayHeightMethod = EnsurePortMasterDisplayDimensionMethod(programType, module, "PortMasterGetDisplayHeight", "DISPLAY_HEIGHT");
 
     RewriteUiScaleGetter(
         optionsUiScaleGetter,
@@ -449,7 +451,9 @@ static void PatchGameAssemblyMethods(string gameDir)
         getClientBounds,
         rectangleWidthField,
         rectangleHeightField,
-        mathFMin);
+        mathFMin,
+        portDisplayWidthMethod,
+        portDisplayHeightMethod);
 
     RewriteZoomLevelGetter(
         optionsZoomLevelGetter,
@@ -461,7 +465,9 @@ static void PatchGameAssemblyMethods(string gameDir)
         getClientBounds,
         rectangleWidthField,
         rectangleHeightField,
-        mathFMin);
+        mathFMin,
+        portDisplayWidthMethod,
+        portDisplayHeightMethod);
 
     RewriteContentRootGetter(
         GetRequiredMethod(localizedContentManagerType, "GetContentRoot", 0),
@@ -517,10 +523,69 @@ static void PatchGameAssemblyMethods(string gameDir)
     RewriteWindowModeOptionSetter(GetRequiredMethodByParameterType(optionsType, "setWindowedOption", "System.Int32"), optionsFullscreenField, optionsWindowedBorderlessFullscreenField);
     RewriteGameWindowModeToggle(toggleFullscreen, game1GetOptions, optionsFullscreenField, optionsWindowedBorderlessFullscreenField);
     RewriteGameWindowModeToggle(toggleNonBorderlessWindowedFullscreen, game1GetOptions, optionsFullscreenField, optionsWindowedBorderlessFullscreenField);
+    var setWindowSize = GetRequiredMethod(game1Type, "SetWindowSize", 2);
+    PatchGame1SetWindowSizeDisplayDimensions(
+        setWindowSize,
+        game1GraphicsField: GetRequiredField(game1Type, "graphics"),
+        preferredBackBufferWidthSetter: GetRequiredReferencedMethod(setWindowSize, "Microsoft.Xna.Framework.GraphicsDeviceManager", "set_PreferredBackBufferWidth"),
+        preferredBackBufferHeightSetter: GetRequiredReferencedMethod(setWindowSize, "Microsoft.Xna.Framework.GraphicsDeviceManager", "set_PreferredBackBufferHeight"),
+        portDisplayWidthMethod,
+        portDisplayHeightMethod);
     PatchOutDisplayModeChanges(game1Type, optionsType);
 
     assembly.Write(tempPath, new WriterParameters { WriteSymbols = false });
     File.Move(tempPath, assemblyPath, overwrite: true);
+}
+
+static MethodDefinition EnsurePortMasterDisplayDimensionMethod(
+    TypeDefinition ownerType,
+    ModuleDefinition module,
+    string methodName,
+    string envName)
+{
+    var existingMethod = ownerType.Methods.FirstOrDefault(method => method.Name == methodName && method.Parameters.Count == 1);
+    if (existingMethod is not null)
+    {
+        existingMethod.Attributes &= ~MethodAttributes.Private;
+        existingMethod.Attributes |= MethodAttributes.Assembly;
+        return existingMethod;
+    }
+
+    var method = new MethodDefinition(
+        methodName,
+        MethodAttributes.Assembly | MethodAttributes.Static | MethodAttributes.HideBySig,
+        module.TypeSystem.Int32);
+    method.Parameters.Add(new ParameterDefinition("fallback", ParameterAttributes.None, module.TypeSystem.Int32));
+    method.Body.InitLocals = true;
+    var parsedValue = new VariableDefinition(module.TypeSystem.Int32);
+    method.Body.Variables.Add(parsedValue);
+    ownerType.Methods.Add(method);
+
+    var getEnvironmentVariable = module.ImportReference(
+        typeof(Environment).GetMethod(nameof(Environment.GetEnvironmentVariable), new[] { typeof(string) })
+        ?? throw new InvalidOperationException("Unable to import Environment.GetEnvironmentVariable"));
+    var intTryParse = module.ImportReference(
+        typeof(int).GetMethod(nameof(int.TryParse), new[] { typeof(string), typeof(int).MakeByRefType() })
+        ?? throw new InvalidOperationException("Unable to import int.TryParse"));
+
+    var il = method.Body.GetILProcessor();
+    var returnFallback = il.Create(OpCodes.Ldarg_0);
+
+    il.Append(il.Create(OpCodes.Ldstr, envName));
+    il.Append(il.Create(OpCodes.Call, getEnvironmentVariable));
+    il.Append(il.Create(OpCodes.Ldloca_S, parsedValue));
+    il.Append(il.Create(OpCodes.Call, intTryParse));
+    il.Append(il.Create(OpCodes.Brfalse_S, returnFallback));
+    il.Append(il.Create(OpCodes.Ldloc_0));
+    il.Append(il.Create(OpCodes.Ldc_I4_0));
+    il.Append(il.Create(OpCodes.Ble_S, returnFallback));
+    il.Append(il.Create(OpCodes.Ldloc_0));
+    il.Append(il.Create(OpCodes.Ret));
+
+    il.Append(returnFallback);
+    il.Append(il.Create(OpCodes.Ret));
+
+    return method;
 }
 
 static void RewriteUiScaleGetter(
@@ -532,7 +597,9 @@ static void RewriteUiScaleGetter(
     MethodReference getClientBounds,
     FieldReference rectangleWidthField,
     FieldReference rectangleHeightField,
-    MethodReference mathFMin)
+    MethodReference mathFMin,
+    MethodReference portDisplayWidthMethod,
+    MethodReference portDisplayHeightMethod)
 {
     ResetMethodBody(method);
     var il = method.Body.GetILProcessor();
@@ -542,7 +609,7 @@ static void RewriteUiScaleGetter(
     il.Append(il.Create(OpCodes.Ldsfld, game1SingletonField));
     il.Append(il.Create(OpCodes.Ldfld, zoomModifierField));
     il.Append(il.Create(OpCodes.Mul));
-    EmitScreenRatio(il, game1SingletonField, getWindow, getClientBounds, rectangleWidthField, rectangleHeightField, mathFMin);
+    EmitScreenRatio(il, game1SingletonField, getWindow, getClientBounds, rectangleWidthField, rectangleHeightField, mathFMin, portDisplayWidthMethod, portDisplayHeightMethod);
     il.Append(il.Create(OpCodes.Mul));
     il.Append(il.Create(OpCodes.Ret));
 }
@@ -557,7 +624,9 @@ static void RewriteZoomLevelGetter(
     MethodReference getClientBounds,
     FieldReference rectangleWidthField,
     FieldReference rectangleHeightField,
-    MethodReference mathFMin)
+    MethodReference mathFMin,
+    MethodReference portDisplayWidthMethod,
+    MethodReference portDisplayHeightMethod)
 {
     ResetMethodBody(method);
     var il = method.Body.GetILProcessor();
@@ -568,14 +637,14 @@ static void RewriteZoomLevelGetter(
     il.Append(il.Create(OpCodes.Brfalse_S, nonScreenshot));
     il.Append(il.Create(OpCodes.Ldarg_0));
     il.Append(il.Create(OpCodes.Ldfld, baseZoomLevelField));
-    EmitScreenRatio(il, game1SingletonField, getWindow, getClientBounds, rectangleWidthField, rectangleHeightField, mathFMin);
+    EmitScreenRatio(il, game1SingletonField, getWindow, getClientBounds, rectangleWidthField, rectangleHeightField, mathFMin, portDisplayWidthMethod, portDisplayHeightMethod);
     il.Append(il.Create(OpCodes.Mul));
     il.Append(il.Create(OpCodes.Ret));
 
     il.Append(nonScreenshot);
     il.Append(il.Create(OpCodes.Ldarg_0));
     il.Append(il.Create(OpCodes.Ldfld, baseZoomLevelField));
-    EmitScreenRatio(il, game1SingletonField, getWindow, getClientBounds, rectangleWidthField, rectangleHeightField, mathFMin);
+    EmitScreenRatio(il, game1SingletonField, getWindow, getClientBounds, rectangleWidthField, rectangleHeightField, mathFMin, portDisplayWidthMethod, portDisplayHeightMethod);
     il.Append(il.Create(OpCodes.Mul));
     il.Append(il.Create(OpCodes.Ldsfld, game1SingletonField));
     il.Append(il.Create(OpCodes.Ldfld, zoomModifierField));
@@ -611,6 +680,11 @@ static void PatchOutDisplayModeChanges(params TypeDefinition[] types)
 {
     foreach (var method in types.SelectMany(type => type.Methods).Where(method => method.HasBody))
     {
+        if (method.DeclaringType.FullName == "StardewValley.Game1" && method.Name == "SetWindowSize")
+        {
+            continue;
+        }
+
         foreach (var instruction in method.Body.Instructions)
         {
             if (instruction.OpCode != OpCodes.Callvirt ||
@@ -668,6 +742,51 @@ static void RewriteGameWindowModeToggle(
     il.Append(il.Create(OpCodes.Ldc_I4_1));
     il.Append(il.Create(OpCodes.Stfld, windowedBorderlessFullscreenField));
     il.Append(il.Create(OpCodes.Ret));
+}
+
+static void PatchGame1SetWindowSizeDisplayDimensions(
+    MethodDefinition method,
+    FieldReference game1GraphicsField,
+    MethodReference preferredBackBufferWidthSetter,
+    MethodReference preferredBackBufferHeightSetter,
+    MethodReference portDisplayWidthMethod,
+    MethodReference portDisplayHeightMethod)
+{
+    if (method.Body.Instructions.Any(instruction =>
+            instruction.Operand is MethodReference reference &&
+            (reference.FullName == portDisplayWidthMethod.FullName || reference.FullName == portDisplayHeightMethod.FullName)))
+    {
+        return;
+    }
+
+    if (method.Parameters.Count != 2)
+    {
+        throw new InvalidOperationException($"Unexpected SetWindowSize parameter count: {method.FullName}");
+    }
+
+    var il = method.Body.GetILProcessor();
+    var first = method.Body.Instructions.FirstOrDefault()
+                ?? throw new InvalidOperationException($"Unable to patch empty method: {method.FullName}");
+    var injected = new[]
+    {
+        il.Create(OpCodes.Ldarg_1),
+        il.Create(OpCodes.Call, portDisplayWidthMethod),
+        il.Create(OpCodes.Starg_S, method.Parameters[0]),
+        il.Create(OpCodes.Ldarg_2),
+        il.Create(OpCodes.Call, portDisplayHeightMethod),
+        il.Create(OpCodes.Starg_S, method.Parameters[1]),
+        il.Create(OpCodes.Ldsfld, game1GraphicsField),
+        il.Create(OpCodes.Ldarg_1),
+        il.Create(OpCodes.Callvirt, preferredBackBufferWidthSetter),
+        il.Create(OpCodes.Ldsfld, game1GraphicsField),
+        il.Create(OpCodes.Ldarg_2),
+        il.Create(OpCodes.Callvirt, preferredBackBufferHeightSetter),
+    };
+
+    foreach (var instruction in injected)
+    {
+        il.InsertBefore(first, instruction);
+    }
 }
 
 static void EmitSetWindowModeFields(
@@ -839,12 +958,15 @@ static void EmitScreenRatio(
     MethodReference getClientBounds,
     FieldReference rectangleWidthField,
     FieldReference rectangleHeightField,
-    MethodReference mathFMin)
+    MethodReference mathFMin,
+    MethodReference portDisplayWidthMethod,
+    MethodReference portDisplayHeightMethod)
 {
     il.Append(il.Create(OpCodes.Ldsfld, game1SingletonField));
     il.Append(il.Create(OpCodes.Callvirt, getWindow));
     il.Append(il.Create(OpCodes.Callvirt, getClientBounds));
     il.Append(il.Create(OpCodes.Ldfld, rectangleHeightField));
+    il.Append(il.Create(OpCodes.Call, portDisplayHeightMethod));
     il.Append(il.Create(OpCodes.Conv_R4));
     il.Append(il.Create(OpCodes.Ldc_R4, 768f));
     il.Append(il.Create(OpCodes.Div));
@@ -853,6 +975,7 @@ static void EmitScreenRatio(
     il.Append(il.Create(OpCodes.Callvirt, getWindow));
     il.Append(il.Create(OpCodes.Callvirt, getClientBounds));
     il.Append(il.Create(OpCodes.Ldfld, rectangleWidthField));
+    il.Append(il.Create(OpCodes.Call, portDisplayWidthMethod));
     il.Append(il.Create(OpCodes.Conv_R4));
     il.Append(il.Create(OpCodes.Ldc_R4, 1366f));
     il.Append(il.Create(OpCodes.Div));
