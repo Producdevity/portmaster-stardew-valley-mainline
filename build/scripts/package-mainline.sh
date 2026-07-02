@@ -217,14 +217,9 @@ build_patch_dll() {
   dotnet build "$PATCH_PROJECT" -c Release --no-restore
 
   local patch_dll
-  local harmony_dll
   patch_dll="$(find "$ROOT/build/src/StardewPatches.Mainline/bin/Release" -path '*net6.0/StardewPatches.dll' | head -n 1)"
-  harmony_dll="$(find "$ROOT/build/src/StardewPatches.Mainline/bin/Release" -path '*net6.0/0Harmony.dll' | head -n 1)"
 
   cp "$patch_dll" "$ARTIFACTS/StardewPatches.dll"
-  if [ -n "$harmony_dll" ]; then
-    cp "$harmony_dll" "$ARTIFACTS/0Harmony.dll"
-  fi
 }
 
 build_game_data_patcher() {
@@ -346,9 +341,6 @@ stage_base_package_root() {
     "$dest_game_dir/tools/SMAPIBundle/default-mods"
 
   cp "$ARTIFACTS/StardewPatches.dll" "$dest_game_dir/dlls/StardewPatches.dll"
-  if [ -f "$ARTIFACTS/0Harmony.dll" ]; then
-    cp "$ARTIFACTS/0Harmony.dll" "$dest_game_dir/dlls/0Harmony.dll"
-  fi
 
   cp "$ARTIFACTS/MonoGame.Framework.dll" "$dest_game_dir/overrides/gamedata/MonoGame.Framework.dll"
   if [ -f "$ARTIFACTS/MonoGame.Framework.xml" ]; then
